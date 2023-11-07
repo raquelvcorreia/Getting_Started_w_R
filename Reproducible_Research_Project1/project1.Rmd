@@ -1,0 +1,153 @@
+---
+title: "Project1_Reproducible Research"
+author: "AC"
+date: "2/14/2021"
+output: html_document
+---
+
+
+Read the activivy dataset into data, and load the libraries: dplyr and lubricate
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+data <- read.csv("activity.csv")
+data$date <- as.Date(data$date)
+library(dplyr)
+library(lubridate)
+```
+
+## Part I
+Summarize the steps steps per day su
+```{r data by day}
+result <- data %>% group_by(date) %>% summarise(totalS = sum(steps, na.rm = TRUE), .groups = 'drop')
+```
+
+
+histogram of the total number of steps taken each day
+
+```{r result, echo=TRUE}
+hist(result$totalS, main = "Histogram of the total number of steps per day", xlab = "Steps per day")
+dev.copy(png,"Hist1.png")
+dev.off()
+```
+
+The mean of total steps taken per day is:
+```{r mean, echo=TRUE}
+TotalSteps_mean <- round(mean(result$totalS))
+TotalSteps_mean
+```
+
+
+The median of total steps taken per day is:
+```{r median, echo=TRUE}
+TotalSteps_median <- median(result$totalS)
+TotalSteps_median
+```
+
+## Part II
+
+Plotting the average daily activity per interval 
+
+```{r daily activity, echo=TRUE}
+average_per_interval <- aggregate(steps~interval, data, mean)
+plot(average_per_interval$interval, average_per_interval$steps,  type = "l", main = "Average number of steps per interval", xlab = "5-minute interval", ylab = "Averaged across all days")
+dev.copy(png,"TimeSeriesAverageSteps.png")
+dev.off()
+
+```
+
+5-minute interval, on average across all the days in the dataset, that contains the maximum number of steps:
+```{r maxactInterval, echo=TRUE}
+maxActInterval <- average_per_interval[which.max(average_per_interval$steps), ]$interval
+maxActInterval
+```
+
+## Part III
+Imputing missing values
+
+Calculation the number of missing values in the data (activity.csv)
+```{r NA, echo=TRUE}
+missingvalues <- sum(is.na(data))
+missingvalues
+```
+ 
+Filling the missing values
+```{r fillingNA, echo=TRUE}
+#copy the original "data" to "data2"
+data2 <- data
+
+#alter data2 by replacing all the NA with the mean for that 5-minute interval
+for (i in 1:nrow(data2)) {
+    if(is.na(data2$steps[i])) {
+        replace <- average_per_interval$steps[which(average_per_interval$interval == data2$interval[i])]
+        data2$steps[i] <- replace
+    }
+}
+#data2 is the same as data but NA's have been replaced with the 5min interval mean
+
+# Aggregate the steps per day after replacing NA's
+result2 <- data2 %>% group_by(date) %>% summarise(totalS = sum(steps, na.rm = TRUE), .groups = 'drop')
+
+#Histogram of total of steps per day with NA's replaced
+hist(result2$totalS, main = "Histogram of the total number of steps per day (NAs replaced)", xlab = "Steps per day")
+dev.copy(png,"Hist2.png")
+dev.off()
+```
+ 
+
+The mean of total steps taken per day is:
+```{r mean2, echo=TRUE}
+TotalSteps_mean2 <- round(mean(result2$totalS))
+TotalSteps_mean2
+```
+
+
+The median of total steps taken per day is:
+```{r median2, echo=TRUE}
+TotalSteps_median2 <- median(result2$totalS)
+TotalSteps_median2
+```
+
+Evaluating if replacing the NA's has an effect on the calculated mean and median of steps per day
+```{r compare, echo=TRUE}
+mean_the_same <- TotalSteps_mean2 == TotalSteps_mean
+mean_the_same
+median_the_same <-TotalSteps_median2 == TotalSteps_median
+median_the_same
+```
+
+Both the mean and the median change if the NA's are replaced by the 5min interval average
+
+## Part IV
+Are there differences in activity patterns between weekdays and weekends?
+Use data2 (NA filled) 
+
+
+```{r weekdays, echo=TRUE}
+data2$weekday <- weekdays(data2$date)
+wday <- data2$weekday
+for (i in 1:nrow(data2)) {
+    if (wday[i] == "Saturday" || wday[i] == "Sunday") {
+      wday[i] <- "weekend"
+    } else {
+      wday[i] <- "weekday"
+    } 
+  }
+
+# Add wday as a column of the data2 dataset 
+data2$wday <- wday
+
+#load the lattice library
+library(lattice)
+
+#calculate the average of steps 
+average_per_interval2 <- data2 %>%
+    group_by(wday, interval) %>%
+    summarize(avg = mean(steps))
+
+#plot illustrating the diferent activity patterns between weekend and weekdays 
+xyplot(avg ~ interval | wday, average_per_interval2, type = "l", pch = 20, layout = c(1,2), main = "Activity paterns between weekdays and weekends", ylab = "Number of steps", xlab = "Interval")
+dev.copy(png,"ActivityWeekdaysWeekends.png")
+dev.off()
+
+```
